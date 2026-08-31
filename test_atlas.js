@@ -1,0 +1,1 @@
+﻿const mongoose = require('mongoose'); mongoose.connect('mongodb+srv://pandikani636_db_user:877887spkpandikani2101@cluster0.chwzj4f.mongodb.net/Dental_db?retryWrites=true&w=majority&appName=Cluster0').then(() => { console.log('Atlas Connected'); process.exit(0); }).catch(e => { console.error('Atlas Error:', e.message); process.exit(1); });

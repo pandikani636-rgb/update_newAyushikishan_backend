@@ -5,6 +5,14 @@ const upload = require('../middlewares/multer');
 
 const router = express.Router();
 
+router.get('/debug-mongo', (req, res) => {
+  res.json({
+    mongoUriLength: process.env.MONGO_URI ? process.env.MONGO_URI.length : 0,
+    hasMongoUri: !!process.env.MONGO_URI,
+    nodeEnv: process.env.NODE_ENV
+  });
+});
+
 router.route('/products').get(getAllProducts);
 router.route('/products/all').get(getProducts);
 
