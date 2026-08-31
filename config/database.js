@@ -19,7 +19,8 @@ const connectDatabase = () => {
             useNewUrlParser: true, 
             useUnifiedTopology: true,
             maxPoolSize: 10, // Limit connections to prevent MongoDB Free Tier exhaustion
-            serverSelectionTimeoutMS: 5000 
+            serverSelectionTimeoutMS: 15000,
+            bufferTimeoutMS: 30000 // Fix Vercel cold start timeouts
         }).then((mongoose) => {
             console.log("Mongoose Connected Successfully");
             return mongoose;
