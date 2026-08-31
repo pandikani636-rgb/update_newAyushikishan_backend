@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/flipkart";
+const MONGO_URI = process.env.MONGO_URI ;
 
 let cached = global.mongoose;
 
@@ -15,6 +15,9 @@ const connectDatabase = () => {
 
     if (!cached.promise) {
         console.log("Creating new Mongoose connection...");
+        if (!process.env.MONGO_URI) {
+            console.warn("WARNING: MONGO_URI environment variable is missing! Using fallback local URI.");
+        }
         cached.promise = mongoose.connect(MONGO_URI, { 
             useNewUrlParser: true, 
             useUnifiedTopology: true,

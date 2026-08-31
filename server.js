@@ -23,15 +23,17 @@ app.get('/', (req, res) => {
     res.send('Server is Running! 🚀');
 });
 
-const server = app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
-});
-
-process.on('unhandledRejection', (err) => {
-    console.log(`Error: ${err.message}`);
-    server.close(() => {
-        process.exit(1);
+if (process.env.NODE_ENV !== 'production') {
+    const server = app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`)
     });
-});
+
+    process.on('unhandledRejection', (err) => {
+        console.log(`Error: ${err.message}`);
+        server.close(() => {
+            process.exit(1);
+        });
+    });
+}
 
 module.exports = app;
