@@ -113,11 +113,17 @@ exports.uploadPrescription = asyncErrorHandler(async (req, res, next) => {
     if (!req.file) {
         return next(new ErrorHandler("Please upload a file", 400));
     }
-    const prescriptionUrl = `uploads/${req.file.filename}`;
+    
+    const cloudinary = require('cloudinary');
+    const fs = require('fs');
+    const result = await cloudinary.v2.uploader.upload(req.file.path, { folder: "prescriptions" });
+    
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
     res.status(200).json({
         success: true,
-        url: prescriptionUrl
+        url: result.secure_url,
+        public_id: result.public_id
     });
 });
 

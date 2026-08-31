@@ -75,10 +75,16 @@ exports.createProduct = async (req, res) => {
         console.log("BODY:", req.body);
         console.log("FILES:", req.files);
 
-        const images = req.files.map(file => ({
-            url: file.path,
-            public_id: file.filename
-        }));
+        const fs = require('fs');
+        const images = [];
+        for (const file of req.files) {
+            const result = await cloudinary.v2.uploader.upload(file.path, { folder: "products" });
+            images.push({
+                url: result.secure_url,
+                public_id: result.public_id
+            });
+            if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        }
 
         const productData = {
             name: req.body.name,
@@ -119,17 +125,23 @@ exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
 
     // HANDLE IMAGES
     if (req.files && req.files.length > 0) {
-        // Delete old images from uploads folder
+        // Delete old images from cloudinary
         for (const img of product.images) {
-            const filePath = path.join(__dirname, "../", img.url);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            if (img.public_id) {
+                await cloudinary.v2.uploader.destroy(img.public_id);
+            }
         }
 
-        // Add new images from request
-        const images = req.files.map(file => ({
-            public_id: file.filename,
-            url: `uploads/${file.filename}` // Standardized with createProduct
-        }));
+        const fs = require('fs');
+        const images = [];
+        for (const file of req.files) {
+            const result = await cloudinary.v2.uploader.upload(file.path, { folder: "products" });
+            images.push({
+                url: result.secure_url,
+                public_id: result.public_id
+            });
+            if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        }
 
         req.body.images = images;
     }

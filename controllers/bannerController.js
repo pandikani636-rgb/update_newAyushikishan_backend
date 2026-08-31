@@ -3,6 +3,7 @@ const asyncErrorHandler = require('../middlewares/asyncErrorHandler');
 const ErrorHandler = require('../utils/errorHandler');
 const fs = require('fs');
 const path = require('path');
+const cloudinary = require('cloudinary');
 
 // Get All Active Banners (Public)
 exports.getBanners = asyncErrorHandler(async (req, res, next) => {
@@ -45,27 +46,29 @@ exports.createBanner = asyncErrorHandler(async (req, res, next) => {
             return next(new ErrorHandler("Please upload a banner image", 400));
         }
 
+        const result = await cloudinary.v2.uploader.upload(req.file.path, { folder: "banners" });
+
         const bannerData = {
             title: req.body.title,
             subtitle: req.body.subtitle,
             isActive: req.body.isActive === 'true' || req.body.isActive === true,
             image: {
-                public_id: req.file.filename,
-                url: `uploads/${req.file.filename}`
+                public_id: result.public_id,
+                url: result.secure_url
             }
         };
 
         const banner = await Banner.create(bannerData);
+
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
         res.status(201).json({
             success: true,
             banner
         });
     } catch (error) {
-        // Cleanup uploaded file if creation fails
-        if (req.file) {
-            const filePath = path.join(__dirname, "../uploads", req.file.filename);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
         }
         return next(new ErrorHandler(error.message, 500));
     }
@@ -84,22 +87,24 @@ exports.updateBanner = asyncErrorHandler(async (req, res, next) => {
         subtitle: req.body.subtitle || banner.subtitle,
     };
     
-    // Explicitly check for isActive property as it's a boolean and can be false
     if (req.body.isActive !== undefined) {
         updatedData.isActive = req.body.isActive === 'true' || req.body.isActive === true;
     }
 
     // Handle Image Update
     if (req.file) {
-        // Delete old image from uploads folder
-        const oldImagePath = path.join(__dirname, "../", banner.image.url);
-        if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
+        if (banner.image && banner.image.public_id) {
+            await cloudinary.v2.uploader.destroy(banner.image.public_id);
+        }
 
-        // Add new image
+        const result = await cloudinary.v2.uploader.upload(req.file.path, { folder: "banners" });
+
         updatedData.image = {
-            public_id: req.file.filename,
-            url: `uploads/${req.file.filename}`
+            public_id: result.public_id,
+            url: result.secure_url
         };
+        
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     }
 
     banner = await Banner.findByIdAndUpdate(req.params.id, updatedData, {
@@ -121,10 +126,8 @@ exports.deleteBanner = asyncErrorHandler(async (req, res, next) => {
         return next(new ErrorHandler("Banner Not Found", 404));
     }
 
-    // Delete image from local uploads
-    if (banner.image && banner.image.url) {
-        const imagePath = path.join(__dirname, "../", banner.image.url);
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    if (banner.image && banner.image.public_id) {
+        await cloudinary.v2.uploader.destroy(banner.image.public_id);
     }
 
     await banner.deleteOne();
