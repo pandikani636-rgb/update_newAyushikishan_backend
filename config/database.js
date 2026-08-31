@@ -1,40 +1,53 @@
-const mongoose = require('mongoose');
-const MONGO_URI = process.env.MONGO_URI ;
+const mongoose = require("mongoose");
 
 let cached = global.mongoose;
 
 if (!cached) {
-    cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongoose = {
+    conn: null,
+    promise: null,
+  };
 }
 
-const connectDatabase = () => {
-    if (cached.conn) {
-        console.log("Using cached Mongoose connection");
-        return cached.conn;
-    }
-
-    if (!cached.promise) {
-        console.log("Creating new Mongoose connection...");
-        if (!process.env.MONGO_URI) {
-            console.warn("WARNING: MONGO_URI environment variable is missing! Using fallback local URI.");
-        }
-        cached.promise = mongoose.connect(MONGO_URI, { 
-            useNewUrlParser: true, 
-            useUnifiedTopology: true,
-            maxPoolSize: 10, // Limit connections to prevent MongoDB Free Tier exhaustion
-            serverSelectionTimeoutMS: 15000,
-            bufferTimeoutMS: 30000 // Fix Vercel cold start timeouts
-        }).then((mongoose) => {
-            console.log("Mongoose Connected Successfully");
-            return mongoose;
-        }).catch((err) => {
-            console.error("MongoDB Connection Error: ", err);
-            cached.promise = null;
-        });
-    }
-
-    cached.conn = cached.promise;
+const connectDatabase = async () => {
+  // Already connected
+  if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
-}
+  }
+
+  // Create new connection
+  if (!cached.promise) {
+    const MONGO_URI = process.env.MONGO_URI;
+
+    if (!MONGO_URI) {
+      throw new Error("MONGO_URI environment variable is missing");
+    }
+
+    console.log("Creating MongoDB connection...");
+
+    cached.promise = mongoose
+      .connect(MONGO_URI, {
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 8000,
+        socketTimeoutMS: 45000,
+      })
+      .then((mongooseInstance) => {
+        console.log("MongoDB Connected Successfully");
+        return mongooseInstance;
+      })
+      .catch((error) => {
+        console.error("MongoDB Connection Error:", error);
+
+        cached.promise = null;
+        cached.conn = null;
+
+        throw error;
+      });
+  }
+
+  cached.conn = await cached.promise;
+
+  return cached.conn;
+};
 
 module.exports = connectDatabase;
