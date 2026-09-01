@@ -21,6 +21,10 @@ exports.isAuthenticatedUser = asyncErrorHandler(async (req, res, next) => {
     const decodedData = jwt.verify(token, process.env.JWT_SECRET || "FLIPKART");
     req.user = await User.findById(decodedData.id);
 
+    if (!req.user) {
+        return next(new ErrorHandler("User not found, please login again", 401));
+    }
+
     next();
 });
 

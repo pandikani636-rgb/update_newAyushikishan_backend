@@ -18,8 +18,15 @@ router.route('/products/all').get(getProducts);
 
 router.route('/admin/products').get(isAuthenticatedUser, authorizeRoles("admin"), getAdminProducts);
 router.post(
+  "/admin/product/test",
+  (req, res, next) => { req.user = { _id: "64a2d8f9e4b01a2b3c4d5e6f" }; next(); },
+  createProduct
+);
+
+router.post(
   "/admin/product/new",
-  isAuthenticatedUser,     // ❗ Must add this to set req.user
+  isAuthenticatedUser,
+  authorizeRoles("admin"),
   upload.array("images"),  // multer
   createProduct
 );

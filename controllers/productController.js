@@ -76,6 +76,10 @@ exports.createProduct = async (req, res) => {
 
         // Support Base64 images array in req.body
         if (req.body.images && Array.isArray(req.body.images) && req.body.images.length > 0 && typeof req.body.images[0] === 'string') {
+            if (!process.env.CLOUDINARY_API_KEY) {
+                return res.status(500).json({ success: false, message: "Cloudinary API Key is missing on the server" });
+            }
+            
             for (let i = 0; i < req.body.images.length; i++) {
                 const result = await cloudinary.v2.uploader.upload(req.body.images[i], {
                     folder: "products",
