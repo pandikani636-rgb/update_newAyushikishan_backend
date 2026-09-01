@@ -72,18 +72,31 @@ exports.getAdminProducts = asyncErrorHandler(async (req, res, next) => {
 // Create Product ---ADMIN
 exports.createProduct = async (req, res) => {
     try {
-        console.log("BODY:", req.body);
-        console.log("FILES:", req.files);
-
-        const fs = require('fs');
         const images = [];
-        for (const file of req.files) {
-            const result = await cloudinary.v2.uploader.upload(file.path, { folder: "products" });
-            images.push({
-                url: result.secure_url,
-                public_id: result.public_id
-            });
-            if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+        // Support Base64 images array in req.body
+        if (req.body.images && Array.isArray(req.body.images) && req.body.images.length > 0 && typeof req.body.images[0] === 'string') {
+            for (let i = 0; i < req.body.images.length; i++) {
+                const result = await cloudinary.v2.uploader.upload(req.body.images[i], {
+                    folder: "products",
+                });
+                images.push({
+                    url: result.secure_url,
+                    public_id: result.public_id,
+                });
+            }
+        } 
+        // Fallback to multer files
+        else if (req.files && req.files.length > 0) {
+            const fs = require('fs');
+            for (const file of req.files) {
+                const result = await cloudinary.v2.uploader.upload(file.path, { folder: "products" });
+                images.push({
+                    url: result.secure_url,
+                    public_id: result.public_id
+                });
+                if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+            }
         }
 
         const productData = {
@@ -112,19 +125,36 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-
-
-
-
-
 // Update Product ---ADMIN
 exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
-    console.log("UPDATE PRODUCT BODY:", req.body);
     let product = await Product.findById(req.params.id);
     if (!product) return next(new ErrorHandler("Product Not Found", 404));
 
     // HANDLE IMAGES
-    if (req.files && req.files.length > 0) {
+    let images = product.images;
+
+    // Check if new Base64 images are sent
+    if (req.body.images && Array.isArray(req.body.images) && req.body.images.length > 0 && typeof req.body.images[0] === 'string') {
+        // Delete old images from cloudinary
+        for (const img of product.images) {
+            if (img.public_id) {
+                await cloudinary.v2.uploader.destroy(img.public_id);
+            }
+        }
+
+        images = [];
+        for (let i = 0; i < req.body.images.length; i++) {
+            const result = await cloudinary.v2.uploader.upload(req.body.images[i], {
+                folder: "products",
+            });
+            images.push({
+                url: result.secure_url,
+                public_id: result.public_id,
+            });
+        }
+    }
+    // Fallback to multer files
+    else if (req.files && req.files.length > 0) {
         // Delete old images from cloudinary
         for (const img of product.images) {
             if (img.public_id) {
@@ -133,7 +163,7 @@ exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
         }
 
         const fs = require('fs');
-        const images = [];
+        images = [];
         for (const file of req.files) {
             const result = await cloudinary.v2.uploader.upload(file.path, { folder: "products" });
             images.push({
@@ -142,8 +172,6 @@ exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
             });
             if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         }
-
-        req.body.images = images;
     }
 
     // ENSURE USER AND OTHER FIELDS ARE UPDATED
@@ -156,7 +184,7 @@ exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
         status: req.body.status || product.status,
         subCategoryType: req.body.subCategoryType || product.subCategoryType,
         gst: req.body.gst !== undefined ? req.body.gst : product.gst,
-        images: req.body.images || product.images,
+        images: images,
         user: req.user._id
     };
 
